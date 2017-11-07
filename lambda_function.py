@@ -75,15 +75,29 @@ def lambda_handler(event, context):
     new_state = message['detail']['state']
     # reason = message['NewStateReason']
 
+    slack_message_text = "Status: %s\n" % new_state
+
     cp_client = boto3.client('codepipeline')
     response = cp_client.get_pipeline_state(name=pipeline)
+
+    # formatted for UDN Gateway Codepipeline
+    try:
+      pipeline_id = response['stageStates'][0]['latestExecution']['pipelineExecutionId']
+    except:
+      pass
+    else:
+      slack_message_text += "%s pipeline ID: %s\n" % (pipeline, pipeline_id)
+
     try:
       revision_url = response['stageStates'][0]['actionStates'][0]['revisionUrl']
     except:
-      revision_url = 'Error locating github commit url'
+      pass
+    else:
+      slack_message_text += "Github commit:\n%s\n" % revision_url
+
     slack_message = {
         'username': 'AWS CodePipeline',
-        'text': "%s pipeline has %s\n%s" % (pipeline, new_state, revision_url)
+        'text': slack_message_text
     }
 
     req = Request(HOOK_URL, json.dumps(slack_message))
