@@ -93,7 +93,7 @@ def lambda_handler(event, context):
     except:
       pass
     else:
-      slack_message_text += "Github commit:\n%s\n" % revision_url
+      slack_message_text += "Github commit: %s\n" % revision_url
 
     slack_message = {
         'username': 'AWS CodePipeline',
