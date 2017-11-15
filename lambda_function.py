@@ -95,6 +95,14 @@ def lambda_handler(event, context):
     else:
       slack_message_text += "Github commit: %s\n" % revision_url
 
+    if new_state == 'FAILED':
+      try:
+        codebuild_url = response['stageStates'][1]['actionStates'][0]['latestExecution']['externalExecutionUrl']
+      except:
+        codebuild_url = 'Error locating logs'
+      else:
+        slack_message_text += 'Build logs: %s' % codebuild_url
+
     slack_message = {
         'username': 'AWS CodePipeline',
         'text': slack_message_text
