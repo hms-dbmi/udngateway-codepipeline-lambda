@@ -77,22 +77,21 @@ def lambda_handler(event, context):
 
     slack_message_text = "Status: %s\n" % new_state
 
+    execution_id = message['detail']['execution_id']    
+    slack_message_text += "%s pipeline ID: %s\n" % (pipeline, pipeline_id)
+
+
     cp_client = boto3.client('codepipeline')
-    response = cp_client.get_pipeline_state(name=pipeline)
+    response = cp_client.get_pipeline_execution(pipelineName=pipeline, pipelineExecutionId=execution_id)
 
-    # formatted for UDN Gateway Codepipeline
+
     try:
-      pipeline_id = response['stageStates'][0]['latestExecution']['pipelineExecutionId']
+      revision_url = response['pipelineExecution']['artifactRevisions'][0]['revisionUrl']
+      revision_summary = response['pipelineExecution']['artifactRevisions'][0]['revisionSummary']
     except:
       pass
     else:
-      slack_message_text += "%s pipeline ID: %s\n" % (pipeline, pipeline_id)
-
-    try:
-      revision_url = response['stageStates'][0]['actionStates'][0]['revisionUrl']
-    except:
-      pass
-    else:
+      slack_message_text += "Summary: %s\n" % revision_summary
       slack_message_text += "Github commit: %s\n" % revision_url
 
     if new_state == 'FAILED':
