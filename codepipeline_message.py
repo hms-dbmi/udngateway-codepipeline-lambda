@@ -67,13 +67,55 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     logger.info("Event: " + str(event))
+
+    try:
+        subject = event['Records'][0]['Sns']['Subject']
+    except KeyError, ValueError:
+        subject = 'status'
+
+    if 'APPROVAL NEEDED' in subject:
+        message_text = _get_approval_message(event)
+    else:
+        message_text = _get_status_message(event)
+
+    slack_message = {
+        'username': 'AWS CodePipeline',
+        'text': message_text
+    }
+
+    req = Request(HOOK_URL, json.dumps(slack_message))
+    try:
+        response = urlopen(req)
+        response.read()
+    except HTTPError as e:
+        logger.error("Request failed: %d %s", e.code, e.reason)
+    except URLError as e:
+        logger.error("Server connection failed: %s", e.reason)
+
+
+def _get_approval_message(event):
+    """
+    handles approval events
+    :param event:
+    :return:
+    """
+    message = event['Records'][0]['Sns']['Message']
+    link = message.split('\n\n')[5]
+    pipeline_name = message.split('\n\n')[3]
+
+    return '\n*APPROVAL NEEDED*\n{pipeline_name}\n{link}'.format(pipeline_name=pipeline_name, link=link)
+
+
+def _get_status_message(event):
+    """
+    handles status events
+    :param event:
+    :return:
+    """
     message = json.loads(event['Records'][0]['Sns']['Message'])
-    logger.info("Message: " + str(message))
 
     pipeline_name = message['detail']['pipeline'] 
-    #old_state = message['OldStateValue']
     new_state = message['detail']['state']
-    # reason = message['NewStateReason']
 
     slack_message_text = "*Status:* %s\n" % new_state
 
@@ -102,16 +144,5 @@ def lambda_handler(event, context):
       else:
         slack_message_text += 'Build logs: %s' % codebuild_url
 
-    slack_message = {
-        'username': 'AWS CodePipeline',
-        'text': slack_message_text
-    }
+    return slack_message_text
 
-    req = Request(HOOK_URL, json.dumps(slack_message))
-    try:
-        response = urlopen(req)
-        response.read()
-    except HTTPError as e:
-        logger.error("Request failed: %d %s", e.code, e.reason)
-    except URLError as e:
-        logger.error("Server connection failed: %s", e.reason)
